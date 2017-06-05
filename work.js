@@ -24,6 +24,7 @@ function getAndPublish() {
   Promise
     .all([source.searchNewRelease(), firebaseDb.getData()])
     .then(([list, mangas]) => {
+      let shouldUpdate = false;
       _.keys(mangas).forEach((m) => {
         console.log(`Checking ${m}...`);
         const newRelease = list[m.toUpperCase()];
@@ -34,17 +35,23 @@ function getAndPublish() {
           const text = `<${mangaLink} | ${source.source} ${source.isSpoiler ? '(Spoiler)' : ''}: Read ${m} Chapter ${chapter}>`;
 
           if (!_.has(mangas[m], chapter)) {
-            mangas[m][chapter] = newRelease.title || '-';
             console.log(`New chapter detected: ${m} chapter ${chapter}`);
-            Promise
-              .all([slackWebhook.sendSlackWebhook(text), firebaseDb.saveData(mangas)])
+            shouldUpdate = true;
+            mangas[m][chapter] = newRelease.title || '-';
+            slackWebhook
+              .sendSlackWebhook(text)
               .then(() => console.log('Successfully publish message to slack'))
               .catch((err) => console.log(err));
           }
         }
-    })
-  }).catch((err) => {
-      console.log(err);
+      });
+
+      if (shouldUpdate) {
+        console.log('Updating DB...');
+        firebaseDb.saveData(mangas);
+      }
+    }).catch((err) => {
+    console.log(err);
   });
 }
 
