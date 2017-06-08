@@ -18,41 +18,45 @@ switch (type) {
     break;
 }
 
-getAndPublish();
+fetchAndPublish();
 
-function getAndPublish() {
+function fetchAndPublish() {
   Promise
     .all([source.searchNewRelease(), firebaseDb.getData()])
     .then(([list, mangas]) => {
-      let shouldUpdate = false;
-      _.keys(mangas).forEach((m) => {
-        console.log(`Checking ${m}...`);
-        const newRelease = list[m.toUpperCase()];
+        let shouldUpdate = false;
+        _.keys(mangas).forEach((m) => {
+          console.log(`Checking ${m}...`);
+          const newRelease = list[m.toUpperCase()];
 
-        if (newRelease) {
-          const mangaLink = newRelease.uri;
-          const chapter = newRelease.chapter;
-          const text = `<${mangaLink} | ${source.source} ${source.isSpoiler ? '(Spoiler)' : ''}: Read ${m} Chapter ${chapter}>`;
-
-          if (!_.has(mangas[m], chapter)) {
-            console.log(`New chapter detected: ${m} chapter ${chapter}`);
+          if (newRelease && !_.has(mangas[m], newRelease.chapter)) {
             shouldUpdate = true;
-            mangas[m][chapter] = newRelease.title || '-';
-            slackWebhook
-              .sendSlackWebhook(text)
-              .then(() => console.log('Successfully publish message to slack'))
-              .catch((err) => console.log(err));
+            mangas[m][newRelease.chapter] = newRelease.title || '-';
+            publishWebhook(newRelease, m);
           }
-        }
-      });
+        });
 
-      if (shouldUpdate) {
-        console.log('Updating DB...');
-        firebaseDb.saveData(mangas);
+        if (shouldUpdate) {
+          console.log('Updating DB...');
+          firebaseDb.saveData(mangas);
+        }
       }
-    }).catch((err) => {
+    ).catch((err) => {
     console.log(err);
   });
 }
 
-module.exports = { getAndPublish };
+function publishWebhook(newRelease, manga) {
+  const chapter = newRelease.chapter;
+  const mangaLink = newRelease.uri;
+  const text = `<${mangaLink} | ${source.source} ${source.isSpoiler ? '(Spoiler)' : ''}: Read ${manga} Chapter ${chapter}>`;
+
+  slackWebhook
+    .sendSlackWebhook(text)
+    .then(() => console.log('Successfully publish message to slack'))
+    .catch((err) => console.log(err));
+
+  console.log(`New chapter detected: ${manga} chapter ${chapter}`);
+}
+
+module.exports = {fetchAndPublish};
