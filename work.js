@@ -42,6 +42,7 @@ function publishWebhook(newRelease, manga, source) {
 function checkNewMangas(source, newMangas, currentMangas) {
   let shouldUpdate = false;
   const mangas = _.cloneDeep(currentMangas);
+  console.log(newMangas);
 
   _.keys(currentMangas).forEach((m) => {
     console.log(`Checking ${m}...`);
